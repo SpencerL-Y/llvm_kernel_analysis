@@ -1,6 +1,11 @@
 #ifndef CALL_GRAPH_H
 #define CALL_GRAPH_H
 
+#include <stdlib.h>
+#include <string>
+#include <set>
+
+
 class FuncDef {
 public:
 	FuncDef(std::string funcname) : funcName(funcname) {}

@@ -27,6 +27,8 @@
 #include <filesystem>
 #include <boost/algorithm/string/predicate.hpp>
 
+#include "CallGraph.h"
+
 
 int main(int argc, char **argv) {
 	std::string kernelBCDir = "/home/clexma/Desktop/fox3/fuzzing/linuxRepo/llvm_compile/bc_dir";
