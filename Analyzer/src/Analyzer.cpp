@@ -16,7 +16,7 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/JSON.h"
 #include <llvm/IR/InstIterator.h>
-
+#include <llvm/Passes/PassBuilder.h>
 
 
 #include <memory>
@@ -31,6 +31,7 @@
 
 
 int main(int argc, char **argv) {
+	SMDiagnostic Err;
 	std::string kernelBCDir = "/home/clexma/Desktop/fox3/fuzzing/linuxRepo/llvm_compile/bc_dir";
     std::vector<std::string> inputFileNames;
 	for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
@@ -43,5 +44,17 @@ int main(int argc, char **argv) {
 		}
 	}
 
+
+	for(unsigned i = 0; i < inputFileNames.size(); i ++) {
+		LLVMContext *LLVMCtx = new LLVMContext();
+		std::unique_ptr<Module> curr_M = parseIRFile(inputFileNames[i], Err, *LLVMCtx);
+		// std::cout << "IRFileName: " << inputFileNames[i] << std::endl;
+		FunctionAnalysisManager FAM;
+		CallGraphPass CGP;
+		for(Function &F : *curr_M) {
+			CGP.run(F, FAM);
+		}
+	}
+	return 0;
 	
 }

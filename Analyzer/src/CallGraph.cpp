@@ -39,13 +39,32 @@
 using namespace llvm;
 
 
-
-bool CallGraphPass::runOnModule(Module &M) {
-	for(llvm::Function& F : M) {
-		std::cout << "LLVM interate on function" << F.getName().str() << std::endl;
-	}
-
-	return false;
+bool startsWith(std::string s, std::string prefix){
+  return s.find(prefix) == 0?true:false;
 }
 
-static RegisterPass<CallGraphPass> X("CallGraphPass", "Call Graph Pass", false, false);
+PreservedAnalyses CallGraphPass::run(Function &F, FunctionAnalysisManager &AM) {
+	if(!F.isDeclaration()) {
+		bool is_syscall = false;
+		std::string functionName = F.getName().str();
+		std::cout << "----- func name: " << functionName << std::endl;
+
+		FuncDefPtr caller = globalCallGraph.testAndGetFuncName(functionName);
+
+		for(auto &BB : F) {
+			for(auto &I : BB) {
+				if(auto *call = dyn_cast<CallBase>(&I)) {
+					if(Function* calledFunction = call->getCalledFunction()) {
+						std::string calledFuncName = calledFunction->getName().str();
+						if(!startsWith(calledFuncName, "llvm.")) {
+							std::cout << "called func name: " << calledFuncName<< std::endl;
+							FuncDefPtr callee = globalCallGraph.testAndGetFuncName(calledFuncName);
+							globalCallGraph.addCallRel(caller, callee);
+						}
+					}
+				}
+			}
+		}
+	}
+	return PreservedAnalyses::all();
+}

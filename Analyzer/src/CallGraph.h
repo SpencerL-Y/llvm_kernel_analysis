@@ -3,16 +3,40 @@
 
 #include <stdlib.h>
 #include <string>
+#include <iostream>
 #include <set>
 
 
+bool startsWith(std::string s, std::string prefix);
 class FuncDef {
 public:
 	FuncDef(std::string funcname) : funcName(funcname) {}
 	std::string funcName;
+	virtual bool is_syscall() {
+		return false;
+	}
 };
 
 typedef std::shared_ptr<FuncDef> FuncDefPtr;
+
+class SyscallDef : public FuncDef {
+public:
+	SyscallDef(std::string funcName, std::string prefix) : FuncDef(funcName) {
+		if(prefix == "__x64_sys_") {
+			this->syscallName = funcName.substr(10);
+		} else if(prefix == "__se_sys_") {
+			this->syscallName = funcName.substr(9);
+		} else if(prefix == "__do_sys_") {
+			this->syscallName = funcName.substr(9);
+		} else {
+			std::cout << "ERROR: prefix is not syscall" << std::endl;
+		}
+	}
+	std::string syscallName;
+	bool is_syscall() override {
+		return true; 
+	}
+};
 
 class KernelCG {
 public:
@@ -30,23 +54,50 @@ public:
 		}
 	}
 	void addCallRel(std::string callerName, std::string calleeName) {
-		FuncDefPtr callerDef;
-		FuncDefPtr calleeDef;
-		if(funcName2FuncDef.find(callerName) == funcName2FuncDef.end()) {
-			FuncDefPtr newCaller = std::make_shared<FuncDef>(callerName);
-			funcName2FuncDef[callerName] = newCaller;
-			callerDef = newCaller;
-		} else {
-			callerDef = funcName2FuncDef[callerName];
-		}
-		if(funcName2FuncDef.find(calleeName) == funcName2FuncDef.end()) {
-			FuncDefPtr newCallee = std::make_shared<FuncDef>(calleeName);
-			funcName2FuncDef[calleeName] = newCallee;
-			calleeDef = newCallee;
-		} else {
-			calleeDef = funcName2FuncDef[calleeName];
-		}
+		FuncDefPtr callerDef = this->testAndGetFuncName(callerName);
+		FuncDefPtr calleeDef = this->testAndGetFuncName(calleeName);
 		this->addCallRel(callerDef, calleeDef);
+	}
+
+	bool hasFuncName(std::string funcname) {
+		if(this->funcName2FuncDef.find(funcname) != this->funcName2FuncDef.end()) {
+			return true;
+		}
+		return false;
+	}
+
+	bool hasCallSucc(FuncDefPtr funcDef) {
+		if(this->node2succ.find(funcDef) != this->node2succ.end()) {
+			return true;
+		}
+		return false;
+	}
+
+	FuncDefPtr testAndGetFuncName(std::string functionName) {
+		bool is_syscall = false;
+		std::string prefix = "";
+		if(startsWith(functionName, "__do_sys_")){
+			prefix = "__do_sys_";
+			is_syscall = true;
+		} else if(startsWith(functionName, "__se_sys_"))  {
+			prefix = "__se_sys_";
+			is_syscall = true;
+		} else if(startsWith(functionName, "__x64_sys_")) {
+			prefix = "__x64_sys_";
+			is_syscall = true;
+		}
+		FuncDefPtr newFunc = nullptr;
+		if(this->hasFuncName(functionName)) {
+			newFunc = this->funcName2FuncDef[functionName];
+		} else {
+			if(!is_syscall) {
+				newFunc = std::make_shared<FuncDef>(functionName);
+			} else {
+				newFunc = std::make_shared<SyscallDef>(functionName, prefix);
+			}
+			this->funcName2FuncDef[functionName] = newFunc;
+		}
+		return newFunc;
 	}
 	
 
@@ -56,15 +107,9 @@ public:
 static KernelCG globalCallGraph;
 
 using namespace llvm;
-class CallGraphPass : public ModulePass {
+class CallGraphPass : public PassInfoMixin<CallGraphPass> {
 public:
-	static char ID;
-
-	CallGraphPass() : ModulePass(ID){}
-
-	bool runOnModule(Module &M) override;
-	
+PreservedAnalyses run(Function& F, FunctionAnalysisManager &AM);
 };
 
-char CallGraphPass::ID = 0;
 #endif
