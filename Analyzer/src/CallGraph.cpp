@@ -43,6 +43,15 @@ bool startsWith(std::string s, std::string prefix){
   return s.find(prefix) == 0?true:false;
 }
 
+bool isCoreFuncName(std::string funcName) {
+	for(std::string prefix : excluded_prefixes) {
+		if(startsWith(funcName, prefix)) {
+			return false;
+		}
+	}
+	return true;
+}
+
 PreservedAnalyses CallGraphPass::run(Function &F, FunctionAnalysisManager &AM) {
 	if(!F.isDeclaration()) {
 		bool is_syscall = false;
@@ -56,7 +65,7 @@ PreservedAnalyses CallGraphPass::run(Function &F, FunctionAnalysisManager &AM) {
 				if(auto *call = dyn_cast<CallBase>(&I)) {
 					if(Function* calledFunction = call->getCalledFunction()) {
 						std::string calledFuncName = calledFunction->getName().str();
-						if(!startsWith(calledFuncName, "llvm.")) {
+						if(isCoreFuncName(calledFuncName)) {
 							std::cout << "called func name: " << calledFuncName<< std::endl;
 							FuncDefPtr callee = globalCallGraph.testAndGetFuncName(calledFuncName);
 							globalCallGraph.addCallRel(caller, callee);

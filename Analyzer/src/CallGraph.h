@@ -7,7 +7,22 @@
 #include <set>
 
 
-bool startsWith(std::string s, std::string prefix);
+static bool startsWith(std::string s, std::string prefix);
+static bool isCoreFuncName(std::string funcName);
+static std::set<std::string> excluded_prefixes = {
+    "__asan_",
+    "__kasan_",
+    "__ubsan_",
+    "__sanitizer_cov_",
+    "__msan_",
+    "__tsan_",
+    "__stack_chk_",
+    "__traceiter_",
+    "__trace_",
+    "__lock_",
+    "__fentry__",
+	"llvm.",
+};
 class FuncDef {
 public:
 	FuncDef(std::string funcname) : funcName(funcname) {}
@@ -44,13 +59,21 @@ public:
 	
 	std::map<std::string, FuncDefPtr> funcName2FuncDef;
 	std::map<FuncDefPtr, std::set<FuncDefPtr>> node2succ;
+	std::map<FuncDefPtr, std::set<FuncDefPtr>> node2pred;
 	void addCallRel(FuncDefPtr caller, FuncDefPtr callee) {
-		if(this->node2succ.find(caller) != this->node2succ.end()) {
+		if(this->hasCallSucc(caller)) {
 			this->node2succ[caller].insert(callee);
 		} else {
 			std::set<FuncDefPtr> newSet;
 			newSet.insert(callee);
 			this->node2succ[caller] = newSet;
+		}
+		if(this->hasCallPred(callee)) {
+			this->node2pred[callee].insert(caller);
+		} else {
+			std::set<FuncDefPtr> newSet;
+			newSet.insert(caller);
+			this->node2pred[callee] = newSet;
 		}
 	}
 	void addCallRel(std::string callerName, std::string calleeName) {
@@ -68,6 +91,13 @@ public:
 
 	bool hasCallSucc(FuncDefPtr funcDef) {
 		if(this->node2succ.find(funcDef) != this->node2succ.end()) {
+			return true;
+		}
+		return false;
+	}
+
+	bool hasCallPred(FuncDefPtr funcDef) {
+		if(this->node2pred.find(funcDef) != this->node2pred.end()) {
 			return true;
 		}
 		return false;
