@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string>
 #include <iostream>
+#include <istream>
+#include <fstream>
+#include <sstream>
 #include <set>
 
 
@@ -129,13 +132,15 @@ public:
 		}
 		return newFunc;
 	}
-	
 
+
+	void export2file();
+
+	static void restoreKernelCGFromFile();
 	
 };
 
-static KernelCG globalCallGraph;
-
+extern std::shared_ptr<KernelCG> globalCallGraph;
 using namespace llvm;
 class CallGraphPass : public PassInfoMixin<CallGraphPass> {
 public:

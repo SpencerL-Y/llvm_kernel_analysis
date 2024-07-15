@@ -56,9 +56,9 @@ PreservedAnalyses CallGraphPass::run(Function &F, FunctionAnalysisManager &AM) {
 	if(!F.isDeclaration()) {
 		bool is_syscall = false;
 		std::string functionName = F.getName().str();
-		std::cout << "----- func name: " << functionName << std::endl;
+		// std::cout << "----- func name: " << functionName << std::endl;
 
-		FuncDefPtr caller = globalCallGraph.testAndGetFuncName(functionName);
+		FuncDefPtr caller = globalCallGraph->testAndGetFuncName(functionName);
 
 		for(auto &BB : F) {
 			for(auto &I : BB) {
@@ -66,9 +66,9 @@ PreservedAnalyses CallGraphPass::run(Function &F, FunctionAnalysisManager &AM) {
 					if(Function* calledFunction = call->getCalledFunction()) {
 						std::string calledFuncName = calledFunction->getName().str();
 						if(isCoreFuncName(calledFuncName)) {
-							std::cout << "called func name: " << calledFuncName<< std::endl;
-							FuncDefPtr callee = globalCallGraph.testAndGetFuncName(calledFuncName);
-							globalCallGraph.addCallRel(caller, callee);
+							// std::cout << "called func name: " << calledFuncName<< std::endl;
+							FuncDefPtr callee = globalCallGraph->testAndGetFuncName(calledFuncName);
+							globalCallGraph->addCallRel(caller, callee);
 						}
 					}
 				}
@@ -77,3 +77,137 @@ PreservedAnalyses CallGraphPass::run(Function &F, FunctionAnalysisManager &AM) {
 	}
 	return PreservedAnalyses::all();
 }
+
+void KernelCG::export2file() {
+	{
+		std::string fileName = "callgraphFile.txt";
+		std::ofstream fileOut(fileName, std::ios::out);
+		fileOut << "-----funcnames" << std::endl;
+		for(auto item : this->funcName2FuncDef) {
+			std::cout << "export funcname: " << item.first << std::endl;
+			if(item.second->is_syscall()) {
+				fileOut << "1," << item.second->funcName << std::endl;
+			} else {
+				fileOut << "0," << item.second->funcName << std::endl;
+			}
+		}
+		fileOut << "-----forwardrel" << std::endl;
+		for(auto item : this->node2succ) {
+			for(auto specific_to : item.second) {
+				fileOut << item.first->funcName << "," << specific_to->funcName << std::endl;
+			}
+		}
+		fileOut << "-----backwardrel" << std::endl;
+		for(auto item : this->node2pred) {
+			for(auto specific_from : item.second) {
+				fileOut << item.first->funcName << "," << specific_from->funcName << std::endl;
+			}
+		}
+	}	
+}
+
+void KernelCG::restoreKernelCGFromFile() {
+		std::ifstream infile("callgraphFile.txt");
+		std::string line;
+		bool mode = -1;// 0 for funcnames, 1 for fowardrel and 2 for backwardrel
+		while(std::getline(infile, line)) {
+			if(startsWith(line, "-----")) {
+				if(line.find("funcnames") != std::string::npos) {
+					mode = 0;
+				} else if(line.find("forwardrel") != std::string::npos) {
+					mode = 1;
+				} else if(line.find("backwardrel") != std::string::npos) {
+					mode = 2;
+				} else {
+					std::cout << "ERROR: unrecognized format" << std::endl;
+					return;
+				}
+			} else {
+				assert(mode >= 0);
+				if(mode == 0) {
+					// parse funcdefs
+					std::istringstream iss(line);
+					std::string token;
+					int curr_pos = 0;
+					bool is_syscall = false;
+					while(getline(iss, token, ',')) {
+						std::cout << "token: " << token << "\t";
+						if(curr_pos == 0) {
+							if(token.compare("1") == 0) {
+								is_syscall = true;
+							} else {
+								is_syscall = false;
+							}
+						} else {
+							FuncDefPtr newFunc = nullptr;
+							if(is_syscall) {
+								std::string prefix = "";
+								if(token.find("__x64_sys_") != std::string::npos) {
+									prefix = "__x64_sys_";
+								} else if(token.find("__se_sys_") != std::string::npos) {
+									prefix = "__se_sys_";
+								} else {
+									prefix = "__do_sys_";
+								}
+								newFunc = std::make_shared<SyscallDef>(token, prefix);
+							} else {
+								newFunc = std::make_shared<FuncDef>(token);
+							}
+							globalCallGraph->funcName2FuncDef[token] = newFunc;
+						}
+						curr_pos += 1;
+					}
+					std::cout << std::endl;
+				} else if(mode == 1) {
+					// parse forward relations
+					std::istringstream iss(line);
+					std::string token;
+					int curr_pos = 0;
+					FuncDefPtr from = nullptr;
+					FuncDefPtr to = nullptr;
+					while(getline(iss, token, ',')) {
+						if (curr_pos == 0) {
+							from = globalCallGraph->funcName2FuncDef[token];
+						} else {
+							to = globalCallGraph->funcName2FuncDef[token];
+						}
+						curr_pos += 1;
+					}
+					assert(from != nullptr && to != nullptr);
+					if(globalCallGraph->node2succ.find(from) != globalCallGraph->node2succ.end()) {
+						globalCallGraph->node2pred[from].insert(to);
+					} else {
+						std::set<FuncDefPtr> newSet;
+						newSet.insert(to);
+						globalCallGraph->node2pred[from] = newSet;
+					}
+				} else if(mode == 2) {
+					// parse backward relations
+					std::istringstream iss(line);
+					std::string token;
+					int curr_pos = 0;
+					FuncDefPtr from = nullptr;
+					FuncDefPtr to = nullptr;
+					while(getline(iss, token, ',')) {
+						if(curr_pos == 0) {
+							to = globalCallGraph->funcName2FuncDef[token];
+						} else {
+							from = globalCallGraph->funcName2FuncDef[token];
+						}
+						curr_pos += 1;
+					}
+					assert(from != nullptr && to != nullptr);
+					if(globalCallGraph->node2pred.find(to) != globalCallGraph->node2pred.end()) {
+						globalCallGraph->node2pred[to].insert(from);
+					} else {
+						std::set<FuncDefPtr> newSet;
+						newSet.insert(from);
+						globalCallGraph->node2pred[to] = newSet;
+					}
+				} else {
+					std::cout << "ERROR: error reading mode" << std::endl;
+					return;
+				}
+			}
+		}
+	}

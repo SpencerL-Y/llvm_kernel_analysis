@@ -28,33 +28,49 @@
 #include <boost/algorithm/string/predicate.hpp>
 
 #include "CallGraph.h"
-
+std::shared_ptr<KernelCG> globalCallGraph = std::make_shared<KernelCG>();
+bool containFile(std::string filename){
+	std::ifstream f(filename.c_str());
+	return f.good();
+}
 
 int main(int argc, char **argv) {
-	SMDiagnostic Err;
-	std::string kernelBCDir = "/home/clexma/Desktop/fox3/fuzzing/linuxRepo/llvm_compile/bc_dir";
-    std::vector<std::string> inputFileNames;
-	for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
-		if (!std::filesystem::is_directory(p)) {
-				std::filesystem::path path = p.path();
-				if (boost::algorithm::ends_with(path.string(), ".llbc")) {
-					inputFileNames.push_back(path.string());
-					std::cout << (path.u8string()) << std::endl;
-				}
+
+	std::cout << "start analyzing" << std::endl;
+	if(containFile("callgraphFile.txt")) {	
+		KernelCG::restoreKernelCGFromFile();
+	} else {
+		SMDiagnostic Err;
+		std::string kernelBCDir = "/home/clexma/Desktop/fox3/fuzzing/linuxRepo/llvm_compile/bc_dir";
+    	std::vector<std::string> inputFileNames;
+		for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
+			if (!std::filesystem::is_directory(p)) {
+					std::filesystem::path path = p.path();
+					if (boost::algorithm::ends_with(path.string(), ".llbc")) {
+						inputFileNames.push_back(path.string());
+						std::cout << (path.u8string()) << std::endl;
+					}
+			}
 		}
-	}
 
 
-	for(unsigned i = 0; i < inputFileNames.size(); i ++) {
-		LLVMContext *LLVMCtx = new LLVMContext();
-		std::unique_ptr<Module> curr_M = parseIRFile(inputFileNames[i], Err, *LLVMCtx);
-		// std::cout << "IRFileName: " << inputFileNames[i] << std::endl;
-		FunctionAnalysisManager FAM;
-		CallGraphPass CGP;
-		for(Function &F : *curr_M) {
-			CGP.run(F, FAM);
+		for(unsigned i = 0; i < inputFileNames.size(); i ++) {
+			LLVMContext *LLVMCtx = new LLVMContext();
+			std::unique_ptr<Module> curr_M = parseIRFile(inputFileNames[i], Err, *LLVMCtx);
+			// std::cout << "IRFileName: " << inputFileNames[i] << std::endl;
+			FunctionAnalysisManager FAM;
+			CallGraphPass CGP;
+			for(Function &F : *curr_M) {
+				CGP.run(F, FAM);
+			}
 		}
+		for(auto item : globalCallGraph->funcName2FuncDef) {
+			std::cout << item.first << std::endl;
+		}
+		globalCallGraph->export2file();
+
 	}
+	
 	return 0;
 	
 }
