@@ -92,14 +92,14 @@ std::vector<CallPathPtr> KernelCG::searchCallPath(std::string targetFunc, int de
 			std::vector<CallPathPtr> pathInits;
 			CallPathPtr path = std::make_shared<CallPath>();
 			path->append(targetFuncDef);
-			pathInits.push_back(targetFuncDef);
+			pathInits.push_back(path);
 			return pathInits;
 		}
 
 		if(this->node2pred.find(targetFuncDef) != this->node2pred.end()) {
 			std::set<FuncDefPtr> predecessors = this->node2pred[targetFuncDef];
 			for(FuncDefPtr predecessor : predecessors) {
-				std::vector<CallPathPtr> previousCallPaths = this->searchCallPath(predecessor, depth-1);
+				std::vector<CallPathPtr> previousCallPaths = this->searchCallPath(predecessor->funcName, depth-1);
 				for(CallPathPtr callpath : previousCallPaths) {
 					callpath->append(predecessor);
 					result.push_back(callpath);
