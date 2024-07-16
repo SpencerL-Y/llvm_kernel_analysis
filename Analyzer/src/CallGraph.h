@@ -55,6 +55,21 @@ public:
 		return true; 
 	}
 };
+class CallPath {
+public:
+	std::vector<FuncDefPtr> path;
+	void append(FuncDefPtr appended) {
+		path.push_back(appended);
+	}
+	std::vector<std::string> toStringVec() {
+		std::vector<std::string> result;
+		for(int i = 0; i < path.size(); i ++) {
+			result.push_back(path[i]->funcName);
+		}
+		return result;
+	}
+};
+typedef std::shared_ptr<CallPath> CallPathPtr;
 
 class KernelCG {
 public:
@@ -133,6 +148,7 @@ public:
 		return newFunc;
 	}
 
+	std::vector<CallPathPtr> searchCallPath(std::string targetFunc, int depth);
 
 	void export2file();
 

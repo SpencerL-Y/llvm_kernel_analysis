@@ -78,6 +78,31 @@ PreservedAnalyses CallGraphPass::run(Function &F, FunctionAnalysisManager &AM) {
 	return PreservedAnalyses::all();
 }
 
+std::vector<CallPathPtr> KernelCG::searchCallPath(std::string targetFunc, int depth) {
+		std::vector<CallPathPtr> result;
+		if(this->funcName2FuncDef.find(targetFunc) == this->funcName2FuncDef.end()) {
+			std::cout << "ERROR: target function does not exists" << std::endl;
+			return result;
+		}
+		FuncDefPtr targetFuncDef = this->funcName2FuncDef[targetFunc];
+		if(targetFuncDef->is_syscall()) {
+			std::vector<CallPathPtr> pathInits;
+			CallPathPtr path = std::make_shared<CallPath>();
+			path->append(targetFuncDef);
+			pathInits.push_back(targetFuncDef);
+			return pathInits;
+		}
+
+		if(this->node2pred.find(targetFuncDef) != this->node2pred.end()) {
+			
+		} else {
+			return result;
+		}
+
+		
+
+	}
+
 void KernelCG::export2file() {
 	{
 		std::string fileName = "callgraphFile.txt";
