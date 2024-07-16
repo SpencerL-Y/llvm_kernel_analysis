@@ -84,6 +84,9 @@ std::vector<CallPathPtr> KernelCG::searchCallPath(std::string targetFunc, int de
 			std::cout << "ERROR: target function does not exists" << std::endl;
 			return result;
 		}
+		if(depth == 0) {
+			return result;
+		}
 		FuncDefPtr targetFuncDef = this->funcName2FuncDef[targetFunc];
 		if(targetFuncDef->is_syscall()) {
 			std::vector<CallPathPtr> pathInits;
@@ -94,8 +97,17 @@ std::vector<CallPathPtr> KernelCG::searchCallPath(std::string targetFunc, int de
 		}
 
 		if(this->node2pred.find(targetFuncDef) != this->node2pred.end()) {
-			
+			std::set<FuncDefPtr> predecessors = this->node2pred[targetFuncDef];
+			for(FuncDefPtr predecessor : predecessors) {
+				std::vector<CallPathPtr> previousCallPaths = this->searchCallPath(predecessor, depth-1);
+				for(CallPathPtr callpath : previousCallPaths) {
+					callpath->append(predecessor);
+					result.push_back(callpath);
+				}
+			}
+			return result;
 		} else {
+			// this branch means that curent  target function has no predecessors
 			return result;
 		}
 

@@ -23,6 +23,7 @@
 #include <vector>
 #include <sstream>
 #include <iostream>
+#include <fstream>
 #include <sys/resource.h>
 #include <filesystem>
 #include <boost/algorithm/string/predicate.hpp>
@@ -35,21 +36,26 @@ bool containFile(std::string filename){
 }
 
 int main(int argc, char **argv) {
-
+	std::string targetFuncName = argv[1];
+	std::cout << "target function: " << targetFuncName << std::endl; 
 	std::cout << "start analyzing" << std::endl;
+	int depth = 20;
+	std::ofstream pathsFile;
+	pathsFile.open("pathsFile.txt", std::ios::out);
 	if(containFile("callgraphFile.txt")) {	
 		KernelCG::restoreKernelCGFromFile();
+		std::vector<CallPathPtr> callpaths =  globalCallGraph->searchCallPath(targetFuncName, depth);
 	} else {
 		SMDiagnostic Err;
 		std::string kernelBCDir = "/home/clexma/Desktop/fox3/fuzzing/linuxRepo/llvm_compile/bc_dir";
     	std::vector<std::string> inputFileNames;
 		for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
 			if (!std::filesystem::is_directory(p)) {
-					std::filesystem::path path = p.path();
-					if (boost::algorithm::ends_with(path.string(), ".llbc")) {
-						inputFileNames.push_back(path.string());
-						std::cout << (path.u8string()) << std::endl;
-					}
+				std::filesystem::path path = p.path();
+				if (boost::algorithm::ends_with(path.string(), ".llbc")) {
+					inputFileNames.push_back(path.string());
+					std::cout << (path.u8string()) << std::endl;
+				}
 			}
 		}
 
@@ -68,7 +74,8 @@ int main(int argc, char **argv) {
 			std::cout << item.first << std::endl;
 		}
 		globalCallGraph->export2file();
-
+		globalCallGraph->searchCallPath(targetFuncName, depth);
+		std::vector<CallPathPtr> callpaths = globalCallGraph->searchCallPath(targetFuncName, depth);
 	}
 	
 	return 0;
