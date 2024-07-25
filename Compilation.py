@@ -18,7 +18,7 @@ then
 fi
 OFILE=`echo $* | sed -e 's/^.* \(.*\.o\) .*$/\\1/'`
 if [ "x$OFILE" != x -a "$OFILE" != "$*" ] ; then
-    $CLANG -emit-llvm -g "$@" >/dev/null 2>&1 > /dev/null
+    $CLANG -emit-llvm -O0 -femit-all-decls -fno-inline-functions -g "$@" >/dev/null 2>&1 > /dev/null
     if [ -f "$OFILE" ] ; then
         BCFILE=`echo $OFILE | sed -e 's/o$/llbc/'`
         #file $OFILE | grep -q "LLVM IR bitcode" && mv $OFILE $BCFILE || true

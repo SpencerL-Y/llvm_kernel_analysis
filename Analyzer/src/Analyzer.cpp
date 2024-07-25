@@ -45,37 +45,63 @@ int main(int argc, char **argv) {
 	if(containFile("callgraphFile.txt")) {	
 		KernelCG::restoreKernelCGFromFile();
 		std::vector<CallPathPtr> callpaths =  globalCallGraph->searchCallPath(targetFuncName, depth);
+		for(CallPathPtr p : callpaths) {
+			pathsFile << "#path" << std::endl;
+			for(FuncDefPtr func : p->path) {
+				pathsFile << func->funcName << std::endl;
+			}
+		}
 	} else {
-		SMDiagnostic Err;
-		std::string kernelBCDir = "/home/clexma/Desktop/fox3/fuzzing/linuxRepo/llvm_compile/bc_dir";
-    	std::vector<std::string> inputFileNames;
-		for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
-			if (!std::filesystem::is_directory(p)) {
-				std::filesystem::path path = p.path();
-				if (boost::algorithm::ends_with(path.string(), ".llbc")) {
-					inputFileNames.push_back(path.string());
-					std::cout << (path.u8string()) << std::endl;
+		bool debug = false;
+		if(debug) {
+			std::string testbcFile = "/home/clexma/Desktop/fox3/fuzzing/linuxRepo/llvm_compile/bc_dir/fs/fsopen.llbc";
+			LLVMContext *LLVMCtx = new LLVMContext();
+			SMDiagnostic Err;
+			std::unique_ptr<Module> curr_M = parseIRFile(testbcFile, Err, *LLVMCtx);
+			ModuleAnalysisManager MAM;
+			CallGraphPass CGP;
+			CGP.run(*curr_M, MAM);
+			for(auto item : globalCallGraph->funcName2FuncDef) {
+				std::cout << item.first << std::endl;
+			}
+			globalCallGraph->export2file();
+		} else {
+			SMDiagnostic Err;
+			std::string kernelBCDir = "/home/clexma/Desktop/fox3/fuzzing/linuxRepo/llvm_compile/bc_dir";
+    		std::vector<std::string> inputFileNames;
+			for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
+				if (!std::filesystem::is_directory(p)) {
+					std::filesystem::path path = p.path();
+					if (boost::algorithm::ends_with(path.string(), ".llbc")) {
+						inputFileNames.push_back(path.string());
+						std::cout << (path.u8string()) << std::endl;
+					}
+				}
+			}
+
+
+			for(unsigned i = 0; i < inputFileNames.size(); i ++) {
+				LLVMContext *LLVMCtx = new LLVMContext();
+				std::unique_ptr<Module> curr_M = parseIRFile(inputFileNames[i], Err, *LLVMCtx);
+				std::cout << "IRFileName: " << inputFileNames[i] << std::endl;
+				ModuleAnalysisManager MAM;
+				CallGraphPass CGP;
+				CGP.run(*curr_M, MAM);
+			}
+			for(auto item : globalCallGraph->funcName2FuncDef) {
+				std::cout << item.first << std::endl;
+			}
+			globalCallGraph->export2file();
+			globalCallGraph->searchCallPath(targetFuncName, depth);
+			std::vector<CallPathPtr> callpaths = globalCallGraph->searchCallPath(targetFuncName, depth);
+			for(CallPathPtr p : callpaths) {
+				pathsFile << "#path" << std::endl;
+				for(FuncDefPtr func : p->path) {
+					pathsFile << func->funcName << std::endl;
 				}
 			}
 		}
-
-
-		for(unsigned i = 0; i < inputFileNames.size(); i ++) {
-			LLVMContext *LLVMCtx = new LLVMContext();
-			std::unique_ptr<Module> curr_M = parseIRFile(inputFileNames[i], Err, *LLVMCtx);
-			// std::cout << "IRFileName: " << inputFileNames[i] << std::endl;
-			FunctionAnalysisManager FAM;
-			CallGraphPass CGP;
-			for(Function &F : *curr_M) {
-				CGP.run(F, FAM);
-			}
-		}
-		for(auto item : globalCallGraph->funcName2FuncDef) {
-			std::cout << item.first << std::endl;
-		}
-		globalCallGraph->export2file();
-		globalCallGraph->searchCallPath(targetFuncName, depth);
-		std::vector<CallPathPtr> callpaths = globalCallGraph->searchCallPath(targetFuncName, depth);
+		
 	}
 	
 	return 0;

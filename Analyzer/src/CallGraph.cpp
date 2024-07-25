@@ -52,33 +52,39 @@ bool isCoreFuncName(std::string funcName) {
 	return true;
 }
 
-PreservedAnalyses CallGraphPass::run(Function &F, FunctionAnalysisManager &AM) {
-	if(!F.isDeclaration()) {
-		bool is_syscall = false;
-		std::string functionName = F.getName().str();
-		// std::cout << "----- func name: " << functionName << std::endl;
-
-		FuncDefPtr caller = globalCallGraph->testAndGetFuncName(functionName);
-
-		for(auto &BB : F) {
-			for(auto &I : BB) {
-				if(auto *call = dyn_cast<CallBase>(&I)) {
-					if(Function* calledFunction = call->getCalledFunction()) {
-						std::string calledFuncName = calledFunction->getName().str();
-						if(isCoreFuncName(calledFuncName)) {
-							// std::cout << "called func name: " << calledFuncName<< std::endl;
-							FuncDefPtr callee = globalCallGraph->testAndGetFuncName(calledFuncName);
-							globalCallGraph->addCallRel(caller, callee);
+PreservedAnalyses CallGraphPass::run(Module& M, ModuleAnalysisManager &AM) {
+	for(Function& F : M.getFunctionList()) {
+		if(!F.isDeclaration()) {
+			bool is_syscall = false;
+			std::string functionName = F.getName().str();
+			std::cout << "----- func name: " << functionName << std::endl;
+			if(functionName == "fscontext_create_fd") {
+				std::cout << "FOUND !!" << std::endl;
+			}
+			FuncDefPtr caller = globalCallGraph->testAndGetFuncName(functionName);
+		
+			for(auto &BB : F) {
+				for(auto &I : BB) {
+					if(auto *call = dyn_cast<CallBase>(&I)) {
+						if(Function* calledFunction = call->getCalledFunction()) {
+							std::string calledFuncName = calledFunction->getName().str();
+							if(isCoreFuncName(calledFuncName)) {
+								// std::cout << "called func name: " << calledFuncName<< std::endl;
+								FuncDefPtr callee = globalCallGraph->testAndGetFuncName(calledFuncName);
+								globalCallGraph->addCallRel(caller, callee);
+							}
 						}
 					}
 				}
 			}
 		}
 	}
+		
 	return PreservedAnalyses::all();
 }
 
 std::vector<CallPathPtr> KernelCG::searchCallPath(std::string targetFunc, int depth) {
+		std::cout << "search call path: " << targetFunc << " " << depth << std::endl;
 		std::vector<CallPathPtr> result;
 		if(this->funcName2FuncDef.find(targetFunc) == this->funcName2FuncDef.end()) {
 			std::cout << "ERROR: target function does not exists" << std::endl;
@@ -91,14 +97,16 @@ std::vector<CallPathPtr> KernelCG::searchCallPath(std::string targetFunc, int de
 		if(targetFuncDef->is_syscall()) {
 			std::vector<CallPathPtr> pathInits;
 			CallPathPtr path = std::make_shared<CallPath>();
-			path->append(targetFuncDef);
+			// path->append(targetFuncDef);
 			pathInits.push_back(path);
 			return pathInits;
 		}
 
 		if(this->node2pred.find(targetFuncDef) != this->node2pred.end()) {
 			std::set<FuncDefPtr> predecessors = this->node2pred[targetFuncDef];
+			std::cout <<"predecessors: " << std::endl;
 			for(FuncDefPtr predecessor : predecessors) {
+				std::cout << predecessor->funcName << std::endl;
 				std::vector<CallPathPtr> previousCallPaths = this->searchCallPath(predecessor->funcName, depth-1);
 				for(CallPathPtr callpath : previousCallPaths) {
 					callpath->append(predecessor);
@@ -212,11 +220,11 @@ void KernelCG::restoreKernelCGFromFile() {
 					}
 					assert(from != nullptr && to != nullptr);
 					if(globalCallGraph->node2succ.find(from) != globalCallGraph->node2succ.end()) {
-						globalCallGraph->node2pred[from].insert(to);
+						globalCallGraph->node2succ[from].insert(to);
 					} else {
 						std::set<FuncDefPtr> newSet;
 						newSet.insert(to);
-						globalCallGraph->node2pred[from] = newSet;
+						globalCallGraph->node2succ[from] = newSet;
 					}
 				} else if(mode == 2) {
 					// parse backward relations

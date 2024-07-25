@@ -160,7 +160,7 @@ extern std::shared_ptr<KernelCG> globalCallGraph;
 using namespace llvm;
 class CallGraphPass : public PassInfoMixin<CallGraphPass> {
 public:
-PreservedAnalyses run(Function& F, FunctionAnalysisManager &AM);
+PreservedAnalyses run(Module& M, ModuleAnalysisManager &AM);
 };
 
 #endif
