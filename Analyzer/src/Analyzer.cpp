@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
 	std::ofstream pathsFile;
 	pathsFile.open("pathsFile.txt", std::ios::out);
 	if(containFile("callgraphFile.txt")) {	
-		KernelCG::restoreKernelCGFromFile();
+		globalCallGraph->restoreKernelCGFromFile();
 		std::vector<CallPathPtr> callpaths =  globalCallGraph->searchCallPath(targetFuncName, depth);
 		for(CallPathPtr p : callpaths) {
 			pathsFile << "#path" << std::endl;

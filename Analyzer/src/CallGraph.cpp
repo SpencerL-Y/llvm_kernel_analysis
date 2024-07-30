@@ -38,9 +38,21 @@
 
 using namespace llvm;
 
-
+//string utils
 bool startsWith(std::string s, std::string prefix){
   return s.find(prefix) == 0?true:false;
+}
+
+std::string& trim(std::string &s) 
+{
+    if (s.empty()) 
+    {
+        return s;
+    }
+ 
+    s.erase(0,s.find_first_not_of(" "));
+    s.erase(s.find_last_not_of(" ") + 1);
+    return s;
 }
 
 bool isCoreFuncName(std::string funcName) {
@@ -84,7 +96,11 @@ PreservedAnalyses CallGraphPass::run(Module& M, ModuleAnalysisManager &AM) {
 }
 
 std::vector<CallPathPtr> KernelCG::searchCallPath(std::string targetFunc, int depth) {
-		std::cout << "search call path: " << targetFunc << " " << depth << std::endl;
+		std::cout << "curr graph nodesize: " << this->funcName2FuncDef.size() << std::endl;
+		std::cout << "curr graph predsize: " << this->node2pred.size() << std::endl;
+		std::cout << "curr graph succsize: " << this->node2succ.size() << std::endl;
+		std::cout << "search call path:" << targetFunc << "," << depth << std::endl;
+		targetFunc = trim(targetFunc);
 		std::vector<CallPathPtr> result;
 		if(this->funcName2FuncDef.find(targetFunc) == this->funcName2FuncDef.end()) {
 			std::cout << "ERROR: target function does not exists" << std::endl;
@@ -94,6 +110,7 @@ std::vector<CallPathPtr> KernelCG::searchCallPath(std::string targetFunc, int de
 			return result;
 		}
 		FuncDefPtr targetFuncDef = this->funcName2FuncDef[targetFunc];
+		assert(targetFuncDef != nullptr);
 		if(targetFuncDef->is_syscall()) {
 			std::vector<CallPathPtr> pathInits;
 			CallPathPtr path = std::make_shared<CallPath>();
@@ -116,6 +133,7 @@ std::vector<CallPathPtr> KernelCG::searchCallPath(std::string targetFunc, int de
 			return result;
 		} else {
 			// this branch means that curent  target function has no predecessors
+			std::cout << "target function has no predecessors" << std::endl;
 			return result;
 		}
 
@@ -154,15 +172,19 @@ void KernelCG::export2file() {
 void KernelCG::restoreKernelCGFromFile() {
 		std::ifstream infile("callgraphFile.txt");
 		std::string line;
-		bool mode = -1;// 0 for funcnames, 1 for fowardrel and 2 for backwardrel
+		int mode = -1;// 0 for funcnames, 1 for fowardrel and 2 for backwardrel
 		while(std::getline(infile, line)) {
 			if(startsWith(line, "-----")) {
+				std::cout << "line: " << line << std::endl;
 				if(line.find("funcnames") != std::string::npos) {
 					mode = 0;
+					std::cout << "parsing funcnames =====" << std::endl;
 				} else if(line.find("forwardrel") != std::string::npos) {
 					mode = 1;
+					std::cout << "parsing successors =====" << std::endl;
 				} else if(line.find("backwardrel") != std::string::npos) {
 					mode = 2;
+					std::cout << "parsing predecessors =====" << std::endl;
 				} else {
 					std::cout << "ERROR: unrecognized format" << std::endl;
 					return;
@@ -176,7 +198,8 @@ void KernelCG::restoreKernelCGFromFile() {
 					int curr_pos = 0;
 					bool is_syscall = false;
 					while(getline(iss, token, ',')) {
-						std::cout << "token: " << token << "\t";
+						token = trim(token);
+						std::cout << "token:" << token << "\t";
 						if(curr_pos == 0) {
 							if(token.compare("1") == 0) {
 								is_syscall = true;
@@ -198,12 +221,14 @@ void KernelCG::restoreKernelCGFromFile() {
 							} else {
 								newFunc = std::make_shared<FuncDef>(token);
 							}
-							globalCallGraph->funcName2FuncDef[token] = newFunc;
+							assert(newFunc != nullptr);
+							this->funcName2FuncDef[token] = newFunc;
 						}
 						curr_pos += 1;
 					}
 					std::cout << std::endl;
 				} else if(mode == 1) {
+					std::cout << "parse succ" << std::endl;
 					// parse forward relations
 					std::istringstream iss(line);
 					std::string token;
@@ -211,22 +236,29 @@ void KernelCG::restoreKernelCGFromFile() {
 					FuncDefPtr from = nullptr;
 					FuncDefPtr to = nullptr;
 					while(getline(iss, token, ',')) {
+						std::cout << token << ",";
+						token = trim(token);
 						if (curr_pos == 0) {
-							from = globalCallGraph->funcName2FuncDef[token];
+							from = this->funcName2FuncDef[token];
 						} else {
-							to = globalCallGraph->funcName2FuncDef[token];
+							to = this->funcName2FuncDef[token];
 						}
 						curr_pos += 1;
 					}
-					assert(from != nullptr && to != nullptr);
-					if(globalCallGraph->node2succ.find(from) != globalCallGraph->node2succ.end()) {
-						globalCallGraph->node2succ[from].insert(to);
+					// std::cout << "from: " << from->funcName << " to: " << to->funcName << std::endl; 
+					
+					assert(from != nullptr);
+					assert(to != nullptr);
+					if(this->node2succ.find(from) != this->node2succ.end()) {
+						this->node2succ[from].insert(to);
 					} else {
 						std::set<FuncDefPtr> newSet;
 						newSet.insert(to);
-						globalCallGraph->node2succ[from] = newSet;
+						this->node2succ[from] = newSet;
 					}
+					std::cout << std::endl;
 				} else if(mode == 2) {
+					std::cout << "parse pred" << std::endl;
 					// parse backward relations
 					std::istringstream iss(line);
 					std::string token;
@@ -234,20 +266,24 @@ void KernelCG::restoreKernelCGFromFile() {
 					FuncDefPtr from = nullptr;
 					FuncDefPtr to = nullptr;
 					while(getline(iss, token, ',')) {
+						std::cout << token << ",";
+						token = trim(token);
 						if(curr_pos == 0) {
-							to = globalCallGraph->funcName2FuncDef[token];
+							to = this->funcName2FuncDef[token];
 						} else {
-							from = globalCallGraph->funcName2FuncDef[token];
+							from = this->funcName2FuncDef[token];
 						}
 						curr_pos += 1;
 					}
-					assert(from != nullptr && to != nullptr);
-					if(globalCallGraph->node2pred.find(to) != globalCallGraph->node2pred.end()) {
-						globalCallGraph->node2pred[to].insert(from);
+					std::cout << std::endl;
+					assert(from != nullptr);
+					assert(to != nullptr);
+					if(this->node2pred.find(to) != this->node2pred.end()) {
+						this->node2pred[to].insert(from);
 					} else {
 						std::set<FuncDefPtr> newSet;
 						newSet.insert(from);
-						globalCallGraph->node2pred[to] = newSet;
+						this->node2pred[to] = newSet;
 					}
 				} else {
 					std::cout << "ERROR: error reading mode" << std::endl;
@@ -255,4 +291,7 @@ void KernelCG::restoreKernelCGFromFile() {
 				}
 			}
 		}
+		return;
 	}
+
+	

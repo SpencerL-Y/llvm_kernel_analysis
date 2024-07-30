@@ -152,11 +152,11 @@ public:
 
 	void export2file();
 
-	static void restoreKernelCGFromFile();
+	void restoreKernelCGFromFile();
 	
 };
 
-extern std::shared_ptr<KernelCG> globalCallGraph;
+extern  std::shared_ptr<KernelCG> globalCallGraph;
 using namespace llvm;
 class CallGraphPass : public PassInfoMixin<CallGraphPass> {
 public:
