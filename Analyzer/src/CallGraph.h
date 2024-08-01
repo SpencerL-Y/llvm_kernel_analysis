@@ -58,6 +58,13 @@ public:
 class CallPath {
 public:
 	std::vector<FuncDefPtr> path;
+	bool is_complete;
+	CallPath(){
+		this->is_complete = false;
+	}
+	void set_complete() {
+		this->is_complete = true;
+	}
 	void append(FuncDefPtr appended) {
 		path.push_back(appended);
 	}
