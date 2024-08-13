@@ -55,6 +55,9 @@ public:
 		return true; 
 	}
 };
+
+typedef  std::shared_ptr<SyscallDef> SyscallDefPtr;
+
 class CallPath {
 public:
 	std::vector<FuncDefPtr> path;
@@ -71,7 +74,12 @@ public:
 	std::vector<std::string> toStringVec() {
 		std::vector<std::string> result;
 		for(int i = 0; i < path.size(); i ++) {
-			result.push_back(path[i]->funcName);
+			if(path[i]->is_syscall() ) {
+				SyscallDefPtr call = std::dynamic_pointer_cast<SyscallDef>(path[i]);
+				result.push_back(call->syscallName);
+			} else {
+				result.push_back(path[i]->funcName);
+			}
 		}
 		return result;
 	}
