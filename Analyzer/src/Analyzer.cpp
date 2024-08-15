@@ -96,8 +96,8 @@ int main(int argc, char **argv) {
 			std::vector<CallPathPtr> callpaths = globalCallGraph->searchCallPath(targetFuncName, depth);
 			for(CallPathPtr p : callpaths) {
 				pathsFile << "#path" << std::endl;
-				for(FuncDefPtr func : p->path) {
-					pathsFile << func->funcName << std::endl;
+				for(std::string fn : p->toStringVec()) {
+					pathsFile << fn << std::endl;
 				}
 			}
 		}
