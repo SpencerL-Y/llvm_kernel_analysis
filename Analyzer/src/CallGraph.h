@@ -8,6 +8,7 @@
 #include <fstream>
 #include <sstream>
 #include <set>
+#include <queue>
 
 
 static bool startsWith(std::string s, std::string prefix);
@@ -168,7 +169,8 @@ public:
 	void export2file();
 
 	void restoreKernelCGFromFile();
-	
+
+	std::set<std::string> findFunctionsWithinNSteps(std::string funcName, int steps);
 };
 
 extern  std::shared_ptr<KernelCG> globalCallGraph;

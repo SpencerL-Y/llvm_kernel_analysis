@@ -339,4 +339,31 @@ void KernelCG::restoreKernelCGFromFile() {
 		return;
 	}
 
-	
+std::set<std::string> KernelCG::findFunctionsWithinNSteps(std::string funcName, int steps){
+
+	std::set<std::string> reachFunctions;
+	std::queue<std::pair<FuncDefPtr, int>> toVisit;
+	FuncDefPtr startFunc = this->funcName2FuncDef[funcName];
+
+	if(!startFunc){ // the target function is not found in call graph, returning a empty set.
+		std::cerr << "Function " << funcName << "not found in the call graph." << std::endl;
+		return reachFunctions;
+	}
+
+	toVisit.push({startFunc, 0});
+
+	while (!toVisit.empty()){
+		auto [currentFunc, currentStep] = toVisit.front();
+		toVisit.pop();
+		if(currentStep > steps) continue;
+		if(currentStep > 0) reachFunctions.insert(currentFunc->funcName);
+		if(this->node2pred.find(currentFunc) != this->node2pred.end()){
+			for(FuncDefPtr preFunc : this->node2pred[currentFunc]){
+				if(reachFunctions.find(preFunc->funcName) == reachFunctions.end()){
+					toVisit.push({preFunc, currentStep + 1});
+				}
+			}
+		}		
+	}
+	return reachFunctions;
+}

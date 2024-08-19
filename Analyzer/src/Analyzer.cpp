@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
 	} else {
 		bool debug = false;
 		if(debug) {
-			std::string testbcFile = "/home/clexma/Desktop/fox3/fuzzing/linuxRepo/llvm_compile/bc_dir/fs/fsopen.llbc";
+			std::string testbcFile = "/home/chiyue/chiyue/fuzzing/fuzzing/linuxRepo/llvm_kernel_analysis/bc_dir/fs/fsopen.llbc";
 			LLVMContext *LLVMCtx = new LLVMContext();
 			SMDiagnostic Err;
 			std::unique_ptr<Module> curr_M = parseIRFile(testbcFile, Err, *LLVMCtx);
@@ -67,7 +67,7 @@ int main(int argc, char **argv) {
 			globalCallGraph->export2file();
 		} else {
 			SMDiagnostic Err;
-			std::string kernelBCDir = "/home/clexma/Desktop/fox3/fuzzing/linuxRepo/llvm_compile/bc_dir";
+			std::string kernelBCDir = "/home/chiyue/chiyue/fuzzing/fuzzing/linuxRepo/llvm_kernel_analysis/bc_dir";
     		std::vector<std::string> inputFileNames;
 			for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
 				if (!std::filesystem::is_directory(p)) {
@@ -103,6 +103,13 @@ int main(int argc, char **argv) {
 		}
 		
 	}
+	int steps = 2;
+	std::set<std::string> reachFunctions = globalCallGraph->findFunctionsWithinNSteps(targetFuncName, steps);
+	std::cout << "Functions reachable within " << steps << " steps to " << targetFuncName << ":" << std::endl;
+	for(std::string funcName : reachFunctions){
+		std::cout << funcName << std::endl;
+	}
+	std::cout << "---- over ----" << std::endl;
 	
 	return 0;
 	
