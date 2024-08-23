@@ -30,6 +30,7 @@
 
 #include "CallGraph.h"
 std::shared_ptr<KernelCG> globalCallGraph = std::make_shared<KernelCG>();
+std::string project_root = "/home/clexma/Desktop/fox3/fuzzing/";
 bool containFile(std::string filename){
 	std::ifstream f(filename.c_str());
 	return f.good();
@@ -37,9 +38,13 @@ bool containFile(std::string filename){
 
 int main(int argc, char **argv) {
 	std::string targetFuncName = argv[1];
+	std::string max_depth_str = "";
+	if(argc > 2) {
+		max_depth_str = argv[2];
+	}
 	std::cout << "target function: " << targetFuncName << std::endl; 
 	std::cout << "start analyzing" << std::endl;
-	int depth = 20;
+	int depth = argc > 2 ? std::stoi(max_depth_str) : 20;
 	std::ofstream pathsFile;
 	pathsFile.open("pathsFile.txt", std::ios::out);
 	if(containFile("callgraphFile.txt")) {	
@@ -47,14 +52,14 @@ int main(int argc, char **argv) {
 		std::vector<CallPathPtr> callpaths =  globalCallGraph->searchCallPath(targetFuncName, depth);
 		for(CallPathPtr p : callpaths) {
 			pathsFile << "#path" << std::endl;
-			for(FuncDefPtr func : p->path) {
-				pathsFile << func->funcName << std::endl;
+			for(std::string fn : p->toStringVec()) {
+				pathsFile << fn << std::endl;
 			}
 		}
 	} else {
 		bool debug = false;
 		if(debug) {
-			std::string testbcFile = "/home/chiyue/chiyue/fuzzing/fuzzing/linuxRepo/llvm_kernel_analysis/bc_dir/fs/fsopen.llbc";
+			std::string testbcFile = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir/fs/fsopen.llbc";
 			LLVMContext *LLVMCtx = new LLVMContext();
 			SMDiagnostic Err;
 			std::unique_ptr<Module> curr_M = parseIRFile(testbcFile, Err, *LLVMCtx);
@@ -67,7 +72,7 @@ int main(int argc, char **argv) {
 			globalCallGraph->export2file();
 		} else {
 			SMDiagnostic Err;
-			std::string kernelBCDir = "/home/chiyue/chiyue/fuzzing/fuzzing/linuxRepo/llvm_kernel_analysis/bc_dir";
+			std::string kernelBCDir = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir";
     		std::vector<std::string> inputFileNames;
 			for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
 				if (!std::filesystem::is_directory(p)) {
