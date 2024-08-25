@@ -37,84 +37,102 @@ bool containFile(std::string filename){
 }
 
 int main(int argc, char **argv) {
-	std::string targetFuncName = argv[1];
-	std::string max_depth_str = "";
-	if(argc > 2) {
-		max_depth_str = argv[2];
-	}
-	std::cout << "target function: " << targetFuncName << std::endl; 
-	std::cout << "start analyzing" << std::endl;
-	int depth = argc > 2 ? std::stoi(max_depth_str) : 20;
-	std::ofstream pathsFile;
-	pathsFile.open("pathsFile.txt", std::ios::out);
-	if(containFile("callgraphFile.txt")) {	
-		globalCallGraph->restoreKernelCGFromFile();
-		std::vector<CallPathPtr> callpaths =  globalCallGraph->searchCallPath(targetFuncName, depth);
-		for(CallPathPtr p : callpaths) {
-			pathsFile << "#path" << std::endl;
-			for(std::string fn : p->toStringVec()) {
-				pathsFile << fn << std::endl;
-			}
+	std::string running_mode = argv[1];
+	if(!running_mode.compare("target")) {
+		std::string targetFuncName = argv[2];
+		std::string max_depth_str = "";
+		if(argc > 2) {
+			max_depth_str = argv[3];
 		}
-	} else {
-		bool debug = false;
-		if(debug) {
-			std::string testbcFile = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir/fs/fsopen.llbc";
-			LLVMContext *LLVMCtx = new LLVMContext();
-			SMDiagnostic Err;
-			std::unique_ptr<Module> curr_M = parseIRFile(testbcFile, Err, *LLVMCtx);
-			ModuleAnalysisManager MAM;
-			CallGraphPass CGP;
-			CGP.run(*curr_M, MAM);
-			for(auto item : globalCallGraph->funcName2FuncDef) {
-				std::cout << item.first << std::endl;
-			}
-			globalCallGraph->export2file();
-		} else {
-			SMDiagnostic Err;
-			std::string kernelBCDir = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir";
-    		std::vector<std::string> inputFileNames;
-			for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
-				if (!std::filesystem::is_directory(p)) {
-					std::filesystem::path path = p.path();
-					if (boost::algorithm::ends_with(path.string(), ".llbc")) {
-						inputFileNames.push_back(path.string());
-						std::cout << (path.u8string()) << std::endl;
-					}
-				}
-			}
-
-
-			for(unsigned i = 0; i < inputFileNames.size(); i ++) {
-				LLVMContext *LLVMCtx = new LLVMContext();
-				std::unique_ptr<Module> curr_M = parseIRFile(inputFileNames[i], Err, *LLVMCtx);
-				std::cout << "IRFileName: " << inputFileNames[i] << std::endl;
-				ModuleAnalysisManager MAM;
-				CallGraphPass CGP;
-				CGP.run(*curr_M, MAM);
-			}
-			for(auto item : globalCallGraph->funcName2FuncDef) {
-				std::cout << item.first << std::endl;
-			}
-			globalCallGraph->export2file();
-			globalCallGraph->searchCallPath(targetFuncName, depth);
-			std::vector<CallPathPtr> callpaths = globalCallGraph->searchCallPath(targetFuncName, depth);
+		std::cout << "target function: " << targetFuncName 		<< std::endl; 
+		std::cout << "start analyzing" << std::endl;
+		int depth = argc > 2 ? std::stoi(max_depth_str) : 20;
+		std::ofstream pathsFile;
+		pathsFile.open("pathsFile.txt", std::ios::out);
+		if(containFile("callgraphFile.txt")) {	
+			globalCallGraph->restoreKernelCGFromFile();
+			std::vector<CallPathPtr> callpaths =  globalCallGraph->searchCallPath(targetFuncName, depth);
 			for(CallPathPtr p : callpaths) {
 				pathsFile << "#path" << std::endl;
 				for(std::string fn : p->toStringVec()) {
 					pathsFile << fn << std::endl;
 				}
 			}
-		}
+		} else {
+			bool debug = false;
+			if(debug) {
+				std::string testbcFile = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir/fs/fsopen.llbc";
+				LLVMContext *LLVMCtx = new LLVMContext();
+				SMDiagnostic Err;
+				std::unique_ptr<Module> curr_M = parseIRFile(testbcFile, Err, *LLVMCtx);
+				ModuleAnalysisManager MAM;
+				CallGraphPass CGP;
+				CGP.run(*curr_M, MAM);
+				for(auto item : globalCallGraph->funcName2FuncDef) {
+					std::cout << item.first << std::endl;
+				}
+				globalCallGraph->export2file();
+			} else {
+				SMDiagnostic Err;
+				std::string kernelBCDir = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir";
+				std::vector<std::string> inputFileNames;
+				for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
+					if (!std::filesystem::is_directory(p)) {
+						std::filesystem::path path = p.path();
+						if (boost::algorithm::ends_with(path.string(), ".llbc")) {
+							inputFileNames.push_back(path.string());
+							std::cout << (path.u8string()) << std::endl;
+						}
+					}
+				}
 		
+				for(unsigned i = 0; i < inputFileNames.size(); i ++) {
+					LLVMContext *LLVMCtx = new LLVMContext();
+					std::unique_ptr<Module> curr_M = parseIRFile(inputFileNames[i], Err, *LLVMCtx);
+					std::cout << "IRFileName: " << inputFileNames[i] << std::endl;
+					ModuleAnalysisManager MAM;
+					CallGraphPass CGP;
+					CGP.run(*curr_M, MAM);
+				}
+				for(auto item : globalCallGraph->funcName2FuncDef) {
+					std::cout << item.first << std::endl;
+				}
+				globalCallGraph->export2file();
+				globalCallGraph->searchCallPath(targetFuncName, depth);
+				std::vector<CallPathPtr> callpaths = globalCallGraph->searchCallPath(targetFuncName, depth);
+				for(CallPathPtr p : callpaths) {
+					pathsFile << "#path" << std::endl;
+					for(std::string fn : p->toStringVec()) {
+						pathsFile << fn << std::endl;
+					}
+				}
+			}
+		}
+		pathsFile.close();
+	} else if(!running_mode.compare("close")) {
+		if(containFile("callgraphFile.txt")) {	
+			globalCallGraph->restoreKernelCGFromFile();
+		} else {
+			assert(false);
+			std::cout << "ERROR: callgraphFile.txt not exist" << std::endl;
+		}
+		std::string targetFuncName = argv[2];
+		std::string str_steps = argv[3];
+		int steps = std::stoi(str_steps);
+		std::set<std::string> reachFunctions = 	globalCallGraph->findFunctionsWithinNSteps(targetFuncName, steps);
+		std::ofstream closeFunctionFile;
+		closeFunctionFile.open(project_root + "linuxRepo/line2addr/input_functions.txt", std::ios::app);
+		for(std::string close_function : reachFunctions) {
+			std::cout << "close function: " << close_function << std::endl;
+			closeFunctionFile << close_function << std::endl;
+		}
+		closeFunctionFile.close();
+	} else {
+		std::cout << "ERROR: please specify running mode:" << std::endl;
+		std::cout << "./main target [function_name] [max step]" << "\t"  << " for target function path finding" << std::endl;
+		std::cout << "./main close [function_name] [step_num]" << "\t" << " for close function finding step_num predecessors of function_name" << std::endl;
+		return 0;
 	}
-	int steps = 2;
-	std::set<std::string> reachFunctions = globalCallGraph->findFunctionsWithinNSteps(targetFuncName, steps);
-	std::cout << "Functions reachable within " << steps << " steps to " << targetFuncName << ":" << std::endl;
-	for(std::string funcName : reachFunctions){
-		std::cout << funcName << std::endl;
-	}
-	std::cout << "---- over ----" << std::endl;
 	
 	return 0;
 	

@@ -68,7 +68,9 @@
         "typeinfo": "cpp",
         "optional": "cpp",
         "cfenv": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "future": "cpp",
+        "*.inc": "cpp"
     },
     "cmake.sourceDirectory": "/home/clexma/Desktop/fox3/fuzzing/linuxRepo/llvm_compile/Analyzer/src"
 }

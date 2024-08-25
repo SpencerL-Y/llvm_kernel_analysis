@@ -38,7 +38,7 @@
 
 using namespace llvm;
 
-#define OPEN_DEBUG 0
+// #define OPEN_DEBUG
 
 
 //string utils
@@ -130,7 +130,9 @@ std::vector<CallPathPtr> KernelCG::searchCallPath(std::string targetFunc, int de
 			std::cout <<"predecessors: " << std::endl;
 			#endif
 			for(FuncDefPtr predecessor : predecessors) {
+				#ifdef OPEN_DEBUG
 				std::cout << predecessor->funcName << std::endl;
+				#endif
 				std::vector<CallPathPtr> previousCallPaths = this->searchCallPath(predecessor->funcName, depth-1);
 				for(CallPathPtr callpath : previousCallPaths) {
 					callpath->append(predecessor);
@@ -271,7 +273,9 @@ void KernelCG::restoreKernelCGFromFile() {
 					FuncDefPtr from = nullptr;
 					FuncDefPtr to = nullptr;
 					while(getline(iss, token, ',')) {
+						#ifdef OPEN_DEBUG
 						std::cout << token << ",";
+						#endif
 						token = trim(token);
 						if (curr_pos == 0) {
 							from = this->funcName2FuncDef[token];
@@ -280,7 +284,9 @@ void KernelCG::restoreKernelCGFromFile() {
 						}
 						curr_pos += 1;
 					}
-					// std::cout << "from: " << from->funcName << " to: " << to->funcName << std::endl; 
+					#ifdef OPEN_DEBUG
+					std::cout << "from: " << from->funcName << " to: " << to->funcName << std::endl; 
+					#endif
 					
 					assert(from != nullptr);
 					assert(to != nullptr);
@@ -345,8 +351,9 @@ std::set<std::string> KernelCG::findFunctionsWithinNSteps(std::string funcName, 
 	std::queue<std::pair<FuncDefPtr, int>> toVisit;
 	FuncDefPtr startFunc = this->funcName2FuncDef[funcName];
 
-	if(!startFunc){ // the target function is not found in call graph, returning a empty set.
-		std::cerr << "Function " << funcName << "not found in the call graph." << std::endl;
+	if(!startFunc){
+		std::cout << "WARINING: Function " << funcName << " not found in the call graph, using the function itself" << std::endl;
+		reachFunctions.insert(funcName);
 		return reachFunctions;
 	}
 
@@ -356,7 +363,7 @@ std::set<std::string> KernelCG::findFunctionsWithinNSteps(std::string funcName, 
 		auto [currentFunc, currentStep] = toVisit.front();
 		toVisit.pop();
 		if(currentStep > steps) continue;
-		if(currentStep > 0) reachFunctions.insert(currentFunc->funcName);
+		if(currentStep > 0 && !currentFunc->is_syscall()) reachFunctions.insert(currentFunc->funcName);
 		if(this->node2pred.find(currentFunc) != this->node2pred.end()){
 			for(FuncDefPtr preFunc : this->node2pred[currentFunc]){
 				if(reachFunctions.find(preFunc->funcName) == reachFunctions.end()){
