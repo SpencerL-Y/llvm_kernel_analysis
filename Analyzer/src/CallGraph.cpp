@@ -350,10 +350,10 @@ std::set<std::string> KernelCG::findFunctionsWithinNSteps(std::string funcName, 
 	std::set<std::string> reachFunctions;
 	std::queue<std::pair<FuncDefPtr, int>> toVisit;
 	FuncDefPtr startFunc = this->funcName2FuncDef[funcName];
+	reachFunctions.insert(funcName);
 
 	if(!startFunc){
 		std::cout << "WARINING: Function " << funcName << " not found in the call graph, using the function itself" << std::endl;
-		reachFunctions.insert(funcName);
 		return reachFunctions;
 	}
 
