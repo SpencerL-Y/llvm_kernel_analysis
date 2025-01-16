@@ -36,6 +36,101 @@ bool containFile(std::string filename){
 	return f.good();
 }
 
+
+void constructCG() {
+	bool debug = false;
+	if(debug) {
+		std::string testbcFile = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir/fs/fsopen.llbc";
+		LLVMContext *LLVMCtx = new LLVMContext();
+		SMDiagnostic Err;
+		std::unique_ptr<Module> curr_M = parseIRFile(testbcFile, Err, *LLVMCtx);
+		ModuleAnalysisManager MAM;
+		CallGraphPass CGP;
+		CGP.run(*curr_M, MAM);
+		for(auto item : globalCallGraph->funcName2FuncDef) {
+			std::cout << item.first << std::endl;
+		}
+		globalCallGraph->export2file();
+	} else {
+		SMDiagnostic Err;
+		std::string kernelBCDir = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir";
+		std::vector<std::string>  ;
+		for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
+			if (!std::filesystem::is_directory(p)) {
+				std::filesystem::path path = p.path();
+				if (boost::algorithm::ends_with(path.string(), ".llbc")) {
+					inputFileNames.push_back(path.string());
+					std::cout << (path.u8string()) << std::endl;
+				}
+			}
+		}
+	
+		for(unsigned i = 0; i < inputFileNames.size(); i ++) {
+			LLVMContext *LLVMCtx = new LLVMContext();
+			std::unique_ptr<Module> curr_M = parseIRFile(inputFileNames[i], Err, *LLVMCtx);
+			std::cout << "IRFileName: " << inputFileNames[i] << std::endl;
+			ModuleAnalysisManager MAM;
+			CallGraphPass CGP;
+			CGP.run(*curr_M, MAM);
+		}
+		for(auto item : globalCallGraph->funcName2FuncDef) {
+			std::cout << item.first << std::endl;
+		}
+		globalCallGraph->export2file();
+	}
+}
+
+void constructCGAndSearchCallGraph(std::string targetFuncName, int depth, std::ofstream& outputFile) {
+	bool debug = false;
+	if(debug) {
+		std::string testbcFile = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir/fs/fsopen.llbc";
+		LLVMContext *LLVMCtx = new LLVMContext();
+		SMDiagnostic Err;
+		std::unique_ptr<Module> curr_M = parseIRFile(testbcFile, Err, *LLVMCtx);
+		ModuleAnalysisManager MAM;
+		CallGraphPass CGP;
+		CGP.run(*curr_M, MAM);
+		for(auto item : globalCallGraph->funcName2FuncDef) {
+			std::cout << item.first << std::endl;
+		}
+		globalCallGraph->export2file();
+	} else {
+		SMDiagnostic Err;
+		std::string kernelBCDir = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir";
+		std::vector<std::string> inputFileNames;
+		for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
+			if (!std::filesystem::is_directory(p)) {
+				std::filesystem::path path = p.path();
+				if (boost::algorithm::ends_with(path.string(), ".llbc")) {
+					inputFileNames.push_back(path.string());
+					std::cout << (path.u8string()) << std::endl;
+				}
+			}
+		}
+	
+		for(unsigned i = 0; i < inputFileNames.size(); i ++) {
+			LLVMContext *LLVMCtx = new LLVMContext();
+			std::unique_ptr<Module> curr_M = parseIRFile(inputFileNames[i], Err, *LLVMCtx);
+			std::cout << "IRFileName: " << inputFileNames[i] << std::endl;
+			ModuleAnalysisManager MAM;
+			CallGraphPass CGP;
+			CGP.run(*curr_M, MAM);
+		}
+		for(auto item : globalCallGraph->funcName2FuncDef) {
+			std::cout << item.first << std::endl;
+		}
+		globalCallGraph->export2file();
+		globalCallGraph->searchCallPath(targetFuncName, depth);
+		std::vector<CallPathPtr> callpaths = globalCallGraph->searchCallPath(targetFuncName, depth);
+		for(CallPathPtr p : callpaths) {
+			outputFile << "#path" << std::endl;
+			for(std::string fn : p->toStringVec()) {
+				outputFile << fn << std::endl;
+			}
+		}
+	}
+}
+
 int main(int argc, char **argv) {
 	std::string running_mode = argv[1];
 	if(!running_mode.compare("target")) {
@@ -59,54 +154,7 @@ int main(int argc, char **argv) {
 				}
 			}
 		} else {
-			bool debug = false;
-			if(debug) {
-				std::string testbcFile = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir/fs/fsopen.llbc";
-				LLVMContext *LLVMCtx = new LLVMContext();
-				SMDiagnostic Err;
-				std::unique_ptr<Module> curr_M = parseIRFile(testbcFile, Err, *LLVMCtx);
-				ModuleAnalysisManager MAM;
-				CallGraphPass CGP;
-				CGP.run(*curr_M, MAM);
-				for(auto item : globalCallGraph->funcName2FuncDef) {
-					std::cout << item.first << std::endl;
-				}
-				globalCallGraph->export2file();
-			} else {
-				SMDiagnostic Err;
-				std::string kernelBCDir = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir";
-				std::vector<std::string> inputFileNames;
-				for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
-					if (!std::filesystem::is_directory(p)) {
-						std::filesystem::path path = p.path();
-						if (boost::algorithm::ends_with(path.string(), ".llbc")) {
-							inputFileNames.push_back(path.string());
-							std::cout << (path.u8string()) << std::endl;
-						}
-					}
-				}
-		
-				for(unsigned i = 0; i < inputFileNames.size(); i ++) {
-					LLVMContext *LLVMCtx = new LLVMContext();
-					std::unique_ptr<Module> curr_M = parseIRFile(inputFileNames[i], Err, *LLVMCtx);
-					std::cout << "IRFileName: " << inputFileNames[i] << std::endl;
-					ModuleAnalysisManager MAM;
-					CallGraphPass CGP;
-					CGP.run(*curr_M, MAM);
-				}
-				for(auto item : globalCallGraph->funcName2FuncDef) {
-					std::cout << item.first << std::endl;
-				}
-				globalCallGraph->export2file();
-				globalCallGraph->searchCallPath(targetFuncName, depth);
-				std::vector<CallPathPtr> callpaths = globalCallGraph->searchCallPath(targetFuncName, depth);
-				for(CallPathPtr p : callpaths) {
-					pathsFile << "#path" << std::endl;
-					for(std::string fn : p->toStringVec()) {
-						pathsFile << fn << std::endl;
-					}
-				}
-			}
+			constructCGAndSearchCallGraph(targetFuncName, depth, pathsFile);
 		}
 		pathsFile.close();
 	} else if(!running_mode.compare("close")) {
@@ -127,7 +175,16 @@ int main(int argc, char **argv) {
 			closeFunctionFile << close_function << std::endl;
 		}
 		closeFunctionFile.close();
-	} else {
+	} else if(!running_mode.compare("kmem_func")) {
+		std::cout << "finding functions with mem operations" << std::endl;
+		if(containFile("callgraphFile.txt")) {
+			globalCallGraph->restoreKernelCGFromFile();
+		} else {
+			constructCG();
+		}
+		kmemCallingFuncFile.open(project_root + "linuxRepo/memfunc/")
+	} 
+	else {
 		std::cout << "ERROR: please specify running mode:" << std::endl;
 		std::cout << "./main target [function_name] [max step]" << "\t"  << " for target function path finding" << std::endl;
 		std::cout << "./main close [function_name] [step_num]" << "\t" << " for close function finding step_num predecessors of function_name" << std::endl;
