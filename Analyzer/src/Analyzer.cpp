@@ -54,7 +54,7 @@ void constructCG() {
 	} else {
 		SMDiagnostic Err;
 		std::string kernelBCDir = project_root + "linuxRepo/llvm_kernel_analysis/bc_dir";
-		std::vector<std::string>  ;
+		std::vector<std::string>  inputFileNames;
 		for (const auto& p : std::filesystem::recursive_directory_iterator(kernelBCDir)) {
 			if (!std::filesystem::is_directory(p)) {
 				std::filesystem::path path = p.path();
@@ -176,13 +176,13 @@ int main(int argc, char **argv) {
 		}
 		closeFunctionFile.close();
 	} else if(!running_mode.compare("kmem_func")) {
-		std::cout << "finding functions with mem operations" << std::endl;
-		if(containFile("callgraphFile.txt")) {
-			globalCallGraph->restoreKernelCGFromFile();
-		} else {
-			constructCG();
-		}
-		kmemCallingFuncFile.open(project_root + "linuxRepo/memfunc/")
+		// std::cout << "finding functions with mem operations" << std::endl;
+		// if(containFile("callgraphFile.txt")) {
+		// 	globalCallGraph->restoreKernelCGFromFile();
+		// } else {
+		// 	constructCG();
+		// }
+		// kmemCallingFuncFile.open(project_root + "linuxRepo/memfunc/")
 	} 
 	else {
 		std::cout << "ERROR: please specify running mode:" << std::endl;
