@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
 		if(argc > 2) {
 			max_depth_str = argv[3];
 		}
-		std::cout << "target function: " << targetFuncName 		<< std::endl; 
+		std::cout << "target function: " << targetFuncName << std::endl; 
 		std::cout << "start analyzing" << std::endl;
 		int depth = argc > 2 ? std::stoi(max_depth_str) : 20;
 		std::ofstream pathsFile;
@@ -175,7 +175,25 @@ int main(int argc, char **argv) {
 			closeFunctionFile << close_function << std::endl;
 		}
 		closeFunctionFile.close();
-	} else if(!running_mode.compare("kmem_func")) {
+	} else if(!running_mode.compare("static_entry")) {
+		std::cout << "start analyzing static entries" << std::abort
+		if(containFile("callgraphFile.txt")) {
+			globalCallGraph->restoreKernelCGFromFile();
+		} else {
+			assert(false);
+			std::cout << "ERROR: callgraphFile.txt not exists" << std::endl;
+		}
+		std::ofstream staticEntriesFile;
+		staticEntriesFile.open("staticEntriesFile.txt", std::ios::out);
+		std::string targetFuncName = argv[2];
+		std::set<SyscallDefPtr> syscallEntries = globalCallGraph->searchCallSyscalls(targetFuncName);
+		for(SyscallDefPtr e : syscallEntries) {
+			std::string syscallName = e->syscallName;
+			staticEntriesFile << syscallName << std::endl;
+		}
+		staticEntriesFile.close();
+	} 
+	else if(!running_mode.compare("kmem_func")) {
 		// std::cout << "finding functions with mem operations" << std::endl;
 		// if(containFile("callgraphFile.txt")) {
 		// 	globalCallGraph->restoreKernelCGFromFile();

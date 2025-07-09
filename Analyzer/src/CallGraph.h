@@ -166,6 +166,9 @@ public:
 
 	std::vector<CallPathPtr> searchCallPath(std::string targetFunc, int depth);
 
+	std::set<SyscallDefPtr> searchCallSyscalls(std::string targetFunc);
+
+
 	void export2file();
 
 	void restoreKernelCGFromFile();

@@ -29,6 +29,9 @@
 #include <llvm/IR/LegacyPassManager.h>
 #include <map> 
 #include <vector> 
+#include <stack>
+#include <memory>
+#include <queue>
 #include "llvm/IR/CFG.h" 
 #include "llvm/Transforms/Utils/BasicBlockUtils.h" 
 #include "llvm/IR/IRBuilder.h"
@@ -98,92 +101,123 @@ PreservedAnalyses CallGraphPass::run(Module& M, ModuleAnalysisManager &AM) {
 }
 
 std::vector<CallPathPtr> KernelCG::searchCallPath(std::string targetFunc, int depth) {
-		#ifdef OPEN_DEBUG
-		std::cout << "curr graph nodesize: " << this->funcName2FuncDef.size() << std::endl;
-		std::cout << "curr graph predsize: " << this->node2pred.size() << std::endl;
-		std::cout << "curr graph succsize: " << this->node2succ.size() << std::endl;
-		std::cout << "search call path:" << targetFunc << "," << depth << std::endl;
-		#endif
-		targetFunc = trim(targetFunc);
-		std::vector<CallPathPtr> result;
-		if(this->funcName2FuncDef.find(targetFunc) == this->funcName2FuncDef.end()) {
-			std::cout << "ERROR: target function does not exists" << std::endl;
-			return result;
-		}
-		if(depth == 0) {
-			return result;
-		}
-		FuncDefPtr targetFuncDef = this->funcName2FuncDef[targetFunc];
-		assert(targetFuncDef != nullptr);
-		if(targetFuncDef->is_syscall()) {
-			std::vector<CallPathPtr> pathInits;
-			CallPathPtr path = std::make_shared<CallPath>();
-			path->set_complete();
-			// path->append(targetFuncDef);
-			pathInits.push_back(path);
-			return pathInits;
-		}
-
-		if(this->node2pred.find(targetFuncDef) != this->node2pred.end()) {
-			std::set<FuncDefPtr> predecessors = this->node2pred[targetFuncDef];
-			#ifdef OPEN_DEBUG
-			std::cout <<"predecessors: " << std::endl;
-			#endif
-			for(FuncDefPtr predecessor : predecessors) {
-				#ifdef OPEN_DEBUG
-				std::cout << predecessor->funcName << std::endl;
-				#endif
-				std::vector<CallPathPtr> previousCallPaths = this->searchCallPath(predecessor->funcName, depth-1);
-				for(CallPathPtr callpath : previousCallPaths) {
-					callpath->append(predecessor);
-					result.push_back(callpath);
-				}
-			}
-			return result;
-		} else {
-			// this branch means that curent  target function has no predecessors
-			CallPathPtr path = std::make_shared<CallPath>();
-			
-			std::vector<CallPathPtr> pathInits;
-			pathInits.push_back(path);
-			#ifdef OPEN_DEBUG
-			std::cout << "target function has no predecessors" << std::endl;
-			#endif
-			return pathInits;
-		}
-
-		
-
+	#ifdef OPEN_DEBUG
+	std::cout << "curr graph nodesize: " << this->funcName2FuncDef.size() << std::endl;
+	std::cout << "curr graph predsize: " << this->node2pred.size() << std::endl;
+	std::cout << "curr graph succsize: " << this->node2succ.size() << std::endl;
+	std::cout << "search call path:" << targetFunc << "," << depth << std::endl;
+	#endif
+	targetFunc = trim(targetFunc);
+	std::vector<CallPathPtr> result;
+	if(this->funcName2FuncDef.find(targetFunc) == this->funcName2FuncDef.end()) {
+		std::cout << "ERROR: target function does not exists" << std::endl;
+		return result;
 	}
+	if(depth == 0) {
+		return result;
+	}
+	FuncDefPtr targetFuncDef = this->funcName2FuncDef[targetFunc];
+	assert(targetFuncDef != nullptr);
+	if(targetFuncDef->is_syscall()) {
+		std::vector<CallPathPtr> pathInits;
+		CallPathPtr path = std::make_shared<CallPath>();
+		path->set_complete();
+		// path->append(targetFuncDef);
+		pathInits.push_back(path);
+		return pathInits;
+	}
+	if(this->node2pred.find(targetFuncDef) != this->node2pred.end()) {
+		std::set<FuncDefPtr> predecessors = this->node2pred[targetFuncDef];
+		#ifdef OPEN_DEBUG
+		std::cout <<"predecessors: " << std::endl;
+		#endif
+		for(FuncDefPtr predecessor : predecessors) {
+			#ifdef OPEN_DEBUG
+			std::cout << predecessor->funcName << std::endl;
+			#endif
+			std::vector<CallPathPtr> previousCallPaths = this->searchCallPath(predecessor->funcName, depth-1);
+			for(CallPathPtr callpath : previousCallPaths) {
+				callpath->append(predecessor);
+				result.push_back(callpath);
+			}
+		}
+		return result;
+	} else {
+		// this branch means that curent  target function has no predecessors
+		CallPathPtr path = std::make_shared<CallPath>();
+		
+		std::vector<CallPathPtr> pathInits;
+		pathInits.push_back(path);
+		#ifdef OPEN_DEBUG
+		std::cout << "target function has no predecessors" << std::endl;
+		#endif
+		return pathInits;
+	}
+	
+}
+
+// TODO: to be tested 
+std::set<SyscallDefPtr> KernelCG::searchCallSyscalls(std::string targetFunc){
+	std::set<SyscallDefPtr> reachedSystemCalls;
+	std::queue<FuncDefPtr> toBeProcessed;
+	std::set<FuncDefPtr> visitedFuncNodes;
+
+	targetFunc = trim(targetFunc);
+	if(this->funcName2FuncDef.find(targetFunc) == this->funcName2FuncDef.end()) {
+		std::cout << "ERROR: target function not found: " << targetFunc << std::endl;
+		return reachedSystemCalls;
+	}
+	FuncDefPtr targetFuncDef =  this->funcName2FuncDef[targetFunc];
+	toBeProcessed.push(targetFuncDef);
+	while(!toBeProcessed.empty()) {
+		FuncDefPtr frontierNode = toBeProcessed.front();
+		toBeProcessed.pop();
+		if(visitedFuncNodes.find(frontierNode) != visitedFuncNodes.end()) {
+			// the node is processed
+		} else {
+			visitedFuncNodes.insert(frontierNode);
+			if(frontierNode->is_syscall()) {
+				reachedSystemCalls.insert(std::dynamic_pointer_cast<SyscallDef>(frontierNode));
+			} 
+			if(this->node2pred.find(frontierNode) != this->node2pred.end()) {
+				// there are predecessors
+				for(FuncDefPtr pred : this->node2pred[frontierNode]) {
+					if(visitedFuncNodes.find(pred) == visitedFuncNodes.end()) {
+						toBeProcessed.push(pred);
+					}
+				} 
+			} 
+		}
+	}
+	return reachedSystemCalls;
+}
 
 void KernelCG::export2file() {
-	{
-		std::string fileName = "callgraphFile.txt";
-		std::ofstream fileOut(fileName, std::ios::out);
-		fileOut << "-----funcnames" << std::endl;
-		for(auto item : this->funcName2FuncDef) {
-			#ifdef OPEN_DEBUG
-			std::cout << "export funcname: " << item.first << std::endl;
-			#endif
-			if(item.second->is_syscall()) {
-				fileOut << "1," << item.second->funcName << std::endl;
-			} else {
-				fileOut << "0," << item.second->funcName << std::endl;
-			}
+	std::string fileName = "callgraphFile.txt";
+	std::ofstream fileOut(fileName, std::ios::out);
+	fileOut << "-----funcnames" << std::endl;
+	for(auto item : this->funcName2FuncDef) {
+		#ifdef OPEN_DEBUG
+		std::cout << "export funcname: " << item.first << std::endl;
+		#endif
+		if(item.second->is_syscall()) {
+			fileOut << "1," << item.second->funcName << std::endl;
+		} else {
+			fileOut << "0," << item.second->funcName << std::endl;
 		}
-		fileOut << "-----forwardrel" << std::endl;
-		for(auto item : this->node2succ) {
-			for(auto specific_to : item.second) {
-				fileOut << item.first->funcName << "," << specific_to->funcName << std::endl;
-			}
+	}
+	fileOut << "-----forwardrel" << std::endl;
+	for(auto item : this->node2succ) {
+		for(auto specific_to : item.second) {
+			fileOut << item.first->funcName << "," << specific_to->funcName << std::endl;
 		}
-		fileOut << "-----backwardrel" << std::endl;
-		for(auto item : this->node2pred) {
-			for(auto specific_from : item.second) {
-				fileOut << item.first->funcName << "," << specific_from->funcName << std::endl;
-			}
+	}
+	fileOut << "-----backwardrel" << std::endl;
+	for(auto item : this->node2pred) {
+		for(auto specific_from : item.second) {
+			fileOut << item.first->funcName << "," << specific_from->funcName << std::endl;
 		}
-	}	
+	}
 }
 
 void KernelCG::restoreKernelCGFromFile() {
