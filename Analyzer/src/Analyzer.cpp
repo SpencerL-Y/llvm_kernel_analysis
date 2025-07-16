@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
 		}
 		closeFunctionFile.close();
 	} else if(!running_mode.compare("static_entry")) {
-		std::cout << "start analyzing static entries" << std::abort
+		std::cout << "start analyzing static entries" << std::endl;
 		if(containFile("callgraphFile.txt")) {
 			globalCallGraph->restoreKernelCGFromFile();
 		} else {
@@ -187,8 +187,12 @@ int main(int argc, char **argv) {
 		staticEntriesFile.open("staticEntriesFile.txt", std::ios::out);
 		std::string targetFuncName = argv[2];
 		std::set<SyscallDefPtr> syscallEntries = globalCallGraph->searchCallSyscalls(targetFuncName);
+		std::set<std::string> syscallStrs;
 		for(SyscallDefPtr e : syscallEntries) {
 			std::string syscallName = e->syscallName;
+			syscallStrs.insert(syscallName);
+		}
+		for(std::string syscallName : syscallStrs) {
 			staticEntriesFile << syscallName << std::endl;
 		}
 		staticEntriesFile.close();
@@ -201,7 +205,10 @@ int main(int argc, char **argv) {
 		// 	constructCG();
 		// }
 		// kmemCallingFuncFile.open(project_root + "linuxRepo/memfunc/")
-	} 
+	} else if(!running_mode.compare("export_func")) {
+		std::cout << "find all functions" << std::endl;
+
+	}
 	else {
 		std::cout << "ERROR: please specify running mode:" << std::endl;
 		std::cout << "./main target [function_name] [max step]" << "\t"  << " for target function path finding" << std::endl;

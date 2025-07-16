@@ -177,7 +177,17 @@ std::set<SyscallDefPtr> KernelCG::searchCallSyscalls(std::string targetFunc){
 		} else {
 			visitedFuncNodes.insert(frontierNode);
 			if(frontierNode->is_syscall()) {
-				reachedSystemCalls.insert(std::dynamic_pointer_cast<SyscallDef>(frontierNode));
+				bool frontierExists = false;
+				for(SyscallDefPtr syscall : reachedSystemCalls) {
+					std::string frontierNodeFuncName = frontierNode->funcName;
+					if(!syscall->funcName.compare(frontierNodeFuncName)) {
+						frontierExists = true;
+						break;
+					}
+				}
+				if(!frontierExists) {
+					reachedSystemCalls.insert(std::dynamic_pointer_cast<SyscallDef>(frontierNode));
+				}
 			} 
 			if(this->node2pred.find(frontierNode) != this->node2pred.end()) {
 				// there are predecessors
